@@ -1,0 +1,125 @@
+---
+title: "Analysis of The Effect of Vitamin C on Tooth Growth in Guinea Pigs"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+## Introduction
+In this assignment we will do some Exploratory analysis on the ToothGrowth dataset available in R. To this end we will start loading some libraries that we will need including the dataset in question:
+```{r libraries, result='hide'}
+library(datasets)
+library(ggplot2) #This will make easy to represent in one plot dose levels and delivery method effects on tooth length.
+library(RColorBrewer) #Just to pimp up a bit the plots
+```
+
+More information about this dataset can be found [here](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/ToothGrowth.html). In summary we will be analysing a dataset in data frame format with 3 variables:
+
+1. Tooth length (encoded as *len* variable)
+2. Supplement type (encoded as *supp* variable): Delivery method employed including orange juice (OJ) and ascorbic acid (VC)
+3. Dose (encode as *dose* variable): Dose stated in milligrams per day, and it takes 3 values 0.5, 1 and 2 mg/day.
+So lets confirm this information in R:
+```{r characteristics, echo = FALSE}
+str(ToothGrowth)
+```
+As you can see those three variables are present and we can see that *len* and *dose* are numeric while *supp* is a factor variable. **Note:** To be able to plot and be more efficient in the analysis we will convert the variable *dose* in to a factor:
+```{r}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+```
+
+##Exploratory Analysis
+In order to see how the Tooth length data is distributed, we will not show *dose* and *supp* since *len* variable contains the values we are interested in.
+```{r summary}
+summary(ToothGrowth[1])
+```
+As we can appreciate the length varies considerably so we can argue that either *dose* or *supp* or both have and impact in the length of odontoblasts.
+
+To gain a better idea of what is going on we will plot the length in relation to the dose administrated and the method employed:
+```{r plotting}
+g <- ggplot(ToothGrowth, aes(x=dose, y=len, fill=supp)) +
+  geom_boxplot(outlier.colour="black", outlier.shape=16,
+             outlier.size=2, notch=FALSE, position=position_dodge(1)) + labs(title="Tooth length  per dose",x="Dose (mg/day)", y = "Length") + theme_classic() + theme(axis.line.x = element_line(colour = 'black', size=0.5, linetype='solid'), axis.line.y = element_line(colour = 'black', size=0.5, linetype='solid'))
+final <- g + scale_fill_brewer(palette="Accent")
+print(final)
+```
+
+Looking at the plot is easy to deduce why the range of vlues in *len* was so big. Furthermore we can appreciate that the tooth length is affected by the dose administrated and the delivery method. When higher viatmin C doses were administred, tooth length increased but this effect depended on the delivery method. 
+
+##Hypothesis Testing
+As we have mentioned both *dose* and *supp* (delivery method) could have affected length measurements. To address this issue we will perform T test analysis (since we are working with a sample of 60 guinea pigs), we will assume that the data is **normaly distribute** and that the varibales are **independent**. We will perform the following analysis:
+1. Hypothesis of the delivery method effect.
+2. Hypothesis of dose effect.
+3. hypothesis of the delivery method on dose effect.
+
+### Delivery method effect
+We will assume the *null* hypothesis that there is not effect in tooth length due to the delivery method employed. Our *alternative* hypothesis will be that OJ has higher effect in length than VC.
+```{r defining variables}
+OJ <- ToothGrowth[ToothGrowth$supp == "OJ",]$len
+VC <- ToothGrowth[ToothGrowth$supp == "VC",]$len
+t.test(OJ, VC, alternative = "greater")
+```
+As we can see our p value is lower than the type one error of .05, thus we can conclude that **orange juice have an overall significant higher effect in tooth length than the ascorbic acid**. 
+
+###Dose effect
+As we did previously our *null* hypothesis is again a lack off effect of the different doses employed, while the *alternative* dictates that the higher the dose the bigger values in tooth length we get. So, we will have to analyze every single dose employed and compare with each other.
+```{r doses}
+dose05 <- ToothGrowth[ToothGrowth$dose == "0.5",]$len 
+dose1 <- ToothGrowth[ToothGrowth$dose == "1",]$len
+dose2 <- ToothGrowth[ToothGrowth$dose == "2",]$len
+
+#Comapring 0.5 mg/day with 1 mg/day
+t.test(dose1, dose05, alternative = "greater")
+
+#Comapring 0.5 mg/day with 2 mg/day
+t.test(dose2, dose05, alternative = "greater")
+
+#Comapring 1 mg/day with 2 mg/day
+t.test(dose2, dose1, alternative = "greater")
+```
+So the results clearly state that there are **significant differences in tooth lenght between all the posible combinations of doses administrated**.
+
+###Delivery method and dose effect 
+In the previous analysis we grouped both OJ and VC values in our *dose05*, *dose1* and *dose2* variables. Now we will proceed to extend that analysis and confirm what is clearly shown in our plot: the tooth length increase due to dose administration depends on the delivery method employed:
+```{r all together}
+OJdose05 <- subset(ToothGrowth, dose == "0.5" & supp == "OJ")
+VCdose05 <- subset(ToothGrowth, dose == "0.5" & supp == "VC")
+OJdose1 <- subset(ToothGrowth, dose == "1" & supp == "OJ")
+VCdose1 <- subset(ToothGrowth, dose == "1" & supp == "VC")
+OJdose2 <- subset(ToothGrowth, dose == "2" & supp == "OJ")
+VCdose2 <- subset(ToothGrowth, dose == "2" & supp == "VC")
+
+#Comparison between OJ and VC at 0.5 mg/day dose
+t.test(OJdose05$len, VCdose05$len, alternative = "greater")
+
+#Comaprison between OJ and VC at 1 mg/day dose
+t.test(OJdose1$len, VCdose1$len, alternative = "greater")
+
+#Comaprison between OJ and VC at 2 mg/day dose
+t.test(OJdose2$len, VCdose2$len, alternative = "greater")
+
+#Comaprison between 0.5 and 1 mg/day when OJ used
+t.test(OJdose1$len, OJdose05$len, alternative = "greater")
+
+#comaprison between 0.5 and 2 mg/day when OJ used
+t.test(OJdose2$len, OJdose05$len, alternative = "greater")
+
+#Comaprison between 1 and 2 mg/day when OJ used
+t.test(OJdose2$len, OJdose1$len, alternative = "greater")
+
+#Comaprison between 0.5 and 1 mg/day when VC used
+t.test(VCdose1$len, VCdose05$len, alternative = "greater")
+
+#Comaprison between 0.5 and 2 mg/day when VC used
+t.test(VCdose2$len, VCdose05$len, alternative = "greater")
+
+#Comaprison between 1 and 2 mg/day when VC used
+t.test(VCdose2$len, VCdose1$len, alternative = "greater")
+```
+Summarising the results here obtained we can conclude that there are significant differences in tooth length when different doses using different delivery options are given to the Guinea Pigs, meaning **significant differences between doses administrated using same method (either VC or OJ), or between delivery methods when the same dose is administrated, but at 2 mg/day doses of Vitamin C, there are no significant differences (p = 0.5181) in lenght between the delivery methods (OJ or VC)**.
+
+## Conclusions
+As we have seen **Vitamin C does affect tooth lenght**, and this effect is **dose and delivery method dependent**. Our analysis is bases in T test as we assume normality in the distribution of independent variables, unequal variances and sample size. 
